@@ -12,9 +12,9 @@ module.exports = function (app) {
 
     // ! Third party middleware
     app.use(helmet());
-    if (app.get('env') === 'development') {
-        app.use(cors());
-    };
+    // if (app.get('env') === 'development') {
+    app.use(cors());
+    // };
 
     // ! View engine
     app.set('view engine', 'ejs');
