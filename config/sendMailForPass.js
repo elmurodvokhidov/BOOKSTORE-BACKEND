@@ -15,7 +15,7 @@ module.exports = async function ({ _id, email }) {
     const uniqueId = uuidv4() + userId;
     const hashedUniqueId = await bcrypt.hash(uniqueId, 15);
     // todo: Ular yordamida foydalanuvchiga jo'natiladigan linkni hosil qilish
-    const link = `http://localhost:5173/update-password/${userId}/${uniqueId}`
+    const link = `${process.env.CLIENT_LINK}/update-password/${userId}/${uniqueId}`
 
     const newVerificationData = new Verification({
         userId,

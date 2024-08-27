@@ -1,7 +1,7 @@
 const Books = require("../model/bookModel");
-const Joi = require('joi');
 const Auth = require("../model/authModel");
 const mongoose = require('mongoose');
+const { validateBookFunction } = require("../utils/customValidate");
 const { ObjectId } = mongoose.Types;
 
 const getAllBooksFunc = async (req, res) => {
@@ -57,7 +57,7 @@ const createNewBookFunc = async (req, res) => {
         if (!role) return res.status(403).send("Sizga buni qilish taqiqlangan!");
 
         // Serverga kelgan so'rovni tekshirish
-        const { error } = validateFunction(req.body);
+        const { error } = validateBookFunction(req.body);
         if (error) return res.status(400).send(error.details[0].message);
 
         // Agar validatsiya jarayonida hech qanday xato kuzatilmasa, u holda yangi kitob obyetki tuziladi
@@ -76,10 +76,13 @@ const createNewBookFunc = async (req, res) => {
 
 const updateBookFunc = async (req, res) => {
     try {
+        const role = req.authRole;
+        if (!role) return res.status(403).send("Sizga buni qilish taqiqlangan!");
+
         const id = req.params.id;
 
         // Yangi kitob ma'lumotlarini validatsiya qilish
-        const { error } = validateFunction(req.body);
+        const { error } = validateBookFunction(req.body);
         if (error) return res.status(400).send(error.details[0].message);
 
         // Kitobni yangilash
@@ -96,6 +99,9 @@ const updateBookFunc = async (req, res) => {
 
 const deleteBookFunc = async (req, res) => {
     try {
+        const role = req.authRole;
+        if (!role) return res.status(403).send("Sizga buni qilish taqiqlangan!");
+
         // Ko'rsatilgan kitobni index'ni izlab topish
         const deletedBook = await Books.findByIdAndDelete(req.params.id);
         if (!deletedBook) return res.status(404).send("Afsuski kitob topilmadi!");
@@ -158,22 +164,6 @@ const toggleLikeFunc = async (req, res) => {
         console.log(error.message);
         res.status(500).send(error.message);
     }
-};
-
-// Validate funksiyasi
-const validateFunction = (book) => {
-    // Validate schema - sxemada obyektni qanday xossalari bo’lishi kerakligi va o’sha xossalarni turlari qanaqa bo’lishi, xossani qiymati eng kamida qancha bo’lishi yoki eng uzog’i bilan qancha bo’lishi ko'rsatib o'tiladi.
-    const schema = Joi.object({
-        nomi: Joi.string().required().min(3).max(30),
-        narxi: Joi.number(),
-        cat: Joi.string(),
-        img: Joi.string(),
-        description: Joi.string(),
-        avtor: Joi.string(),
-    });
-
-    // Validatsiya natijasini funksiyaga qaytarish
-    return schema.validate(book);
 };
 
 module.exports = {

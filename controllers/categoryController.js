@@ -1,5 +1,5 @@
-const Joi = require("joi");
 const Category = require("../model/categoryModel");
+const { validateCategoryFunction } = require("../utils/customValidate");
 
 const getAllCategoryFunc = async (req, res) => {
     try {
@@ -23,7 +23,7 @@ const getOneCategoryFunc = async (req, res) => {
 };
 const createNewCategoryFunc = async (req, res) => {
     try {
-        const { error } = validateFunction(req.body);
+        const { error } = validateCategoryFunction(req.body);
         if (error) return res.status(400).send(error);
 
         const newCategory = await new Category(req.body);
@@ -37,7 +37,7 @@ const createNewCategoryFunc = async (req, res) => {
 };
 const updateCategoryFunc = async (req, res) => {
     try {
-        const { error } = validateFunction(req.body);
+        const { error } = validateCategoryFunction(req.body);
         if (error) return res.status(400).send(error);
 
         const updatedCategory = await Category.findByIdAndUpdate(req.params.id, req.body, { new: true });
@@ -62,15 +62,7 @@ const deleteCategoryFunc = async (req, res) => {
 };
 
 // Validate funksiyasi
-const validateFunction = (category) => {
-    // Validate schema - sxemada obyektni qanday xossalari bo’lishi kerakligi va o’sha xossalarni turlari qanaqa bo’lishi, xossani qiymati eng kamida qancha bo’lishi yoki eng uzog’i bilan qancha bo’lishi ko'rsatib o'tiladi.
-    const schema = Joi.object({
-        nomi: Joi.string().required().min(3).max(15),
-    });
 
-    // Validatsiya natijasini funksiyaga qaytarish
-    return schema.validate(category);
-};
 
 module.exports = {
     getAllCategoryFunc,

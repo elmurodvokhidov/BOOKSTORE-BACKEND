@@ -1,20 +1,20 @@
-const passwordComplexity = require("joi-password-complexity");
 const Auth = require('../model/authModel');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const sendMail = require("../config/sendMail");
 const Verification = require("../model/verificationModel");
 const sendMailForPass = require("../config/sendMailForPass");
+const validatePassword = require('../utils/validatePassword');
 const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 
 const signUpFunction = async (req, res) => {
     try {
-        const { fullname, email, password, role } = req.body;
+        const { fullname, email, password } = req.body;
 
         const existingAuth = await Auth.findOne({ email });
         if (existingAuth) return res.status(400).send("Ushbu elektron pochta avval foydalanilgan");
 
-        const { error } = await validatePasswordFunction(password);
+        const { error } = await validatePassword(password);
         if (error) return res.status(400).send(error.details[0].message);
 
         const hashedPassword = await bcrypt.hash(password, 15);
@@ -22,11 +22,9 @@ const signUpFunction = async (req, res) => {
             fullname,
             email,
             password: hashedPassword,
-            role,
+            role: false,
             verified: false,
         });
-
-        // const token = jwt.sign({ id: newAuth._id, role }, process.env.JWT_KEY, { expiresIn: "30d" });
 
         // todo: Ro'yhatdan o'tgan foydalanuvchi uchun email xabar jo'natish funksiyasi
         sendMail(newAuth);
@@ -45,17 +43,18 @@ const signInFunction = async (req, res) => {
         const { email, password } = req.body;
 
         const foundAuth = await Auth.findOne({ email })
-        await foundAuth.populate([
-            {
-                path: "basket.book",
-                model: "kitob",
-                populate: [
-                    { path: "avtor", model: "auth" },
-                    { path: "cat", model: "category" }
-                ]
-            },
-            { path: "wishlist" }
-        ]);
+            .populate([
+                {
+                    path: "basket.book",
+                    model: "kitob",
+                    populate: ["avtor", "cat"]
+                }, {
+                    path: "orders.products",
+                    model: "kitob",
+                    populate: ["avtor", "cat"]
+                },
+                { path: "wishlist" }
+            ]);
         if (!foundAuth) return res.status(404).send("Foydalanuvchi topilmadi, iltimos ro'yhatdan o'ting!");
 
         // todo: Agar foydalanuvchi ma'lumotlari topilsayu lekin uning verified xossasi false bo'lsachi?
@@ -75,24 +74,18 @@ const signInFunction = async (req, res) => {
 const getAuth = async (req, res) => {
     try {
         const foundAuth = await Auth.findById(req.authId)
-        await foundAuth.populate([
-            {
-                path: "basket.book",
-                model: "kitob",
-                populate: [
-                    { path: "avtor", model: "auth" },
-                    { path: "cat", model: "category" }
-                ]
-            }, {
-                path: "orders.products",
-                model: "kitob",
-                populate: [
-                    { path: "avtor", model: "auth" },
-                    { path: "cat", model: "category" }
-                ]
-            },
-            { path: "wishlist" }
-        ]);
+            .populate([
+                {
+                    path: "basket.book",
+                    model: "kitob",
+                    populate: ["avtor", "cat"]
+                }, {
+                    path: "orders.products",
+                    model: "kitob",
+                    populate: ["avtor", "cat"]
+                },
+                { path: "wishlist" }
+            ]);
         if (!foundAuth) return res.status(404).json("Foydalanuvchi topilmadi");
 
         res.status(200).json({ data: foundAuth });
@@ -101,6 +94,29 @@ const getAuth = async (req, res) => {
         res.status(500).json(error);
     }
 };
+
+const getAllUser = async (req, res) => {
+    try {
+        const allUser = await Auth.find({ _id: { $ne: req.authId } })
+            .select("-password")
+            .populate([
+                {
+                    path: "basket.book",
+                    model: "kitob",
+                    populate: ["avtor", "cat"]
+                }, {
+                    path: "orders.products",
+                    model: "kitob",
+                    populate: ["avtor", "cat"]
+                },
+                { path: "wishlist" }
+            ]);
+        res.status(200).send(allUser);
+    } catch (error) {
+        console.log(error.message);
+        res.status(500).json(error);
+    }
+}
 
 const incAndDecFunction = async (req, res) => {
     try {
@@ -158,10 +174,11 @@ const deleteFromBasket = async (req, res) => {
             {
                 path: "basket.book",
                 model: "kitob",
-                populate: [
-                    { path: "avtor", model: "auth" },
-                    { path: "cat", model: "category" }
-                ]
+                populate: ["avtor", "cat"]
+            }, {
+                path: "orders.products",
+                model: "kitob",
+                populate: ["avtor", "cat"]
             },
             { path: "wishlist" }
         ]);
@@ -173,7 +190,6 @@ const deleteFromBasket = async (req, res) => {
     }
 };
 
-// todo: Yangi controller funksiya qo'shish lozim, foydalanuvchini verifikatsiya qilish uchun
 const verificateUser = async (req, res) => {
     try {
         const { userId, uniqueId } = req.params;
@@ -268,17 +284,11 @@ const payment = async (req, res) => {
             {
                 path: "basket.book",
                 model: "kitob",
-                populate: [
-                    { path: "avtor", model: "auth" },
-                    { path: "cat", model: "category" }
-                ]
+                populate: ["avtor", "cat"]
             }, {
                 path: "orders.products",
                 model: "kitob",
-                populate: [
-                    { path: "avtor", model: "auth" },
-                    { path: "cat", model: "category" }
-                ]
+                populate: ["avtor", "cat"]
             },
             { path: "wishlist" }
         ]);
@@ -287,21 +297,6 @@ const payment = async (req, res) => {
         console.log(error.message);
         res.render('error', { message: error.message });
     }
-};
-
-// Validate Password funksiyasi
-const validatePasswordFunction = (password) => {
-    const schema = {
-        min: 8,
-        max: 30,
-        lowerCase: 1,
-        upperCase: 1,
-        numeric: 1,
-        symbol: 1,
-        requirementCount: 2,
-    };
-
-    return passwordComplexity(schema).validate(password);
 };
 
 module.exports = {
@@ -313,5 +308,6 @@ module.exports = {
     verificateUser,
     findUserByEmail,
     updatePassword,
-    payment
+    payment,
+    getAllUser,
 };
