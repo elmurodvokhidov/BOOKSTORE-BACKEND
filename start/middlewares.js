@@ -11,7 +11,7 @@ module.exports = function (app) {
     app.use(express.static('uploads'));
 
     // ! Third party middleware
-    app.use(helmet());
+    // app.use(helmet());
     // if (app.get('env') === 'development') {
     app.use(cors());
     // };
