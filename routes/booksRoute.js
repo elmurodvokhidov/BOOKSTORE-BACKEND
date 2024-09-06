@@ -20,9 +20,9 @@ router.get('/:id', getOneBookFunc);
 // Ma'lumotlar omboriga yangi kitob qo'shishga mo'ljallangan route
 router.post('/', authentication, createNewBookFunc);
 // Ma'lumotlar omboridagi mavjud kitobni yangilash
-router.put('/:id', updateBookFunc);
+router.put('/:id', authentication, updateBookFunc);
 // Ko'rsatilgan kitobni ma'lumotlar omboridan o'chirib yuborish
-router.delete('/:id', deleteBookFunc);
+router.delete('/:id', authentication, deleteBookFunc);
 // Berilgan kitobni foydalanuvchi savatiga joylash
 router.post('/:userId/basket/:bookId', addToBasketFunc);
 // Kitobga sharh yozish
